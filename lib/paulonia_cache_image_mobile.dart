@@ -50,7 +50,7 @@ class PCacheImageService {
     String path = _tempPath + '/' + id;
     final File file = File(path);
 
-    if (clearCacheImage) {
+    if (clearCacheImage  && fileIsCached(file)) {
       file.deleteSync();
       _cachedPaths.remove(path);
     }
@@ -143,6 +143,8 @@ class PCacheImageService {
   /// This function get the download url from a Google Cloud Storage url
   static Future<dynamic> _getStandardUrlFromGsUrl(String gsUrl) async {
     Uri uri = Uri.parse(gsUrl);
-    return FirebaseStorage.instance.ref().child(uri.path).getDownloadURL();
+    String bucketName = '${uri.scheme}://${uri.authority}';
+    FirebaseStorage storage = FirebaseStorage.instanceFor(bucket: bucketName);
+    return await storage.ref().child(uri.path).getDownloadURL();
   }
 }
