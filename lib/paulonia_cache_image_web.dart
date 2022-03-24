@@ -91,7 +91,6 @@ class PCacheImageService {
       required CacheRefreshStrategy cacheRefreshStrategy}) async {
     Reference reference =
         getRefFromGsUrl(object == null ? gcsUrl! : object.remotePath);
-    print('web reference...${reference.fullPath}');
 
     int remoteVersion =
         (await reference.getMetadata()).updated?.millisecondsSinceEpoch ?? -1;
@@ -99,15 +98,11 @@ class PCacheImageService {
     // means image exits in cache
     if (object != null) {
       if (remoteVersion != object.version) {
-        print('version  not same...$remoteVersion   ${object.version}');
         // If true, download new image for next load
         await upsertRemoteFileToCache(
             object.remotePath, reference, remoteVersion);
-      } else {
-        print('version same...');
       }
     } else {
-      print('object null...');
       // means image not exits in cache
       await upsertRemoteFileToCache(gcsUrl!, reference, remoteVersion);
     }
@@ -205,7 +200,6 @@ class PCacheImageService {
   @visibleForTesting
   static HiveCacheImage saveHiveImage(
       String url, Uint8List image, int version) {
-    print('saveHiveImage...');
     String id = _stringToBase64.encode(url);
     HiveCacheImage cacheImage =
         HiveCacheImage(remotePath: url, binaryImage: image, version: version);
