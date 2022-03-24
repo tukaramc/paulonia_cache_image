@@ -17,19 +17,25 @@ class HiveCacheImageAdapter extends TypeAdapter<HiveCacheImage> {
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
     return HiveCacheImage(
-      url: fields[0] as String,
-      binaryImage: fields[1] as Uint8List,
+      remotePath: fields[0] as String,
+      version: fields[2] as int?,
+      binaryImage: fields[1] as Uint8List?,
+      localPath: fields[3] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, HiveCacheImage obj) {
     writer
-      ..writeByte(2)
+      ..writeByte(4)
       ..writeByte(0)
-      ..write(obj.url)
+      ..write(obj.remotePath)
       ..writeByte(1)
-      ..write(obj.binaryImage);
+      ..write(obj.binaryImage)
+      ..writeByte(2)
+      ..write(obj.version)
+      ..writeByte(3)
+      ..write(obj.localPath);
   }
 
   @override
