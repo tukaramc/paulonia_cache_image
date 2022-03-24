@@ -2,8 +2,10 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:firebase/firebase.dart' as fb;
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hive/hive.dart';
+import 'package:paulonia_cache_image/cache_refresh_strategy.dart';
 import 'package:paulonia_cache_image/constants.dart';
 import 'package:http/http.dart' as http;
 
@@ -42,35 +44,102 @@ class PCacheImageService {
   /// is true.
   static Future<ui.Codec> getImage(String url, Duration retryDuration,
       Duration maxRetryDuration, bool enableCache,
-      {bool clearCacheImage = false}) async {
-    Uint8List bytes;
-    if (clearCacheImage) {
-      await deleteHiveImage(url);
-    }
+      {bool clearCacheImage = false,
+      required CacheRefreshStrategy cacheRefreshStrategy}) async {
     HiveCacheImage? cacheImage = getHiveImage(url);
-    if (cacheImage == null) {
-      bytes = await downloadImage(
-        url,
-        retryDuration,
-        maxRetryDuration,
-      );
-      if (bytes.lengthInBytes != 0) {
-        if (enableCache) saveHiveImage(url, bytes);
+    if (cacheRefreshStrategy == CacheRefreshStrategy.NONE) {
+      Uint8List bytes;
+      if (clearCacheImage) {
+        await deleteHiveImage(url);
+      }
+      if (cacheImage == null) {
+        bytes = await downloadImage(
+          url,
+          retryDuration,
+          maxRetryDuration,
+        );
+        if (bytes.lengthInBytes != 0) {
+          if (enableCache) saveHiveImage(url, bytes, 0);
+        } else {
+          /// TODO
+          throw "Image couldn't be downloaded";
+        }
       } else {
-        /// TODO
-        throw "Image couldn't be downloaded";
+        bytes = cacheImage.binaryImage!;
+      }
+      return ui.instantiateImageCodec(bytes);
+    } else {
+      /// means gcsAdvanceCache is true
+      if (cacheImage != null &&
+          cacheRefreshStrategy == CacheRefreshStrategy.NATIVE) {
+        checkForUpdate(
+            object: cacheImage, cacheRefreshStrategy: cacheRefreshStrategy);
+      } else {
+        await checkForUpdate(
+            object: cacheImage,
+            gcsUrl: url,
+            cacheRefreshStrategy: cacheRefreshStrategy);
+      }
+      HiveCacheImage? cacheImage1 = getHiveImage(url);
+      return ui.instantiateImageCodec(cacheImage1!.binaryImage!);
+    }
+  }
+
+  static Future<void> checkForUpdate(
+      {HiveCacheImage? object,
+      String? gcsUrl,
+      required CacheRefreshStrategy cacheRefreshStrategy}) async {
+    Reference reference =
+        getRefFromGsUrl(object == null ? gcsUrl! : object.remotePath);
+    print('web reference...${reference.fullPath}');
+
+    int remoteVersion =
+        (await reference.getMetadata()).updated?.millisecondsSinceEpoch ?? -1;
+
+    // means image exits in cache
+    if (object != null) {
+      if (remoteVersion != object.version) {
+        print('version  not same...$remoteVersion   ${object.version}');
+        // If true, download new image for next load
+        await upsertRemoteFileToCache(
+            object.remotePath, reference, remoteVersion);
+      } else {
+        print('version same...');
       }
     } else {
-      bytes = cacheImage.binaryImage;
+      print('object null...');
+      // means image not exits in cache
+      await upsertRemoteFileToCache(gcsUrl!, reference, remoteVersion);
     }
-    return ui.instantiateImageCodec(bytes);
+  }
+
+  // get bytes from firebase storage and save to hive
+  static Future<Uint8List?> upsertRemoteFileToCache(
+      String gcsUrl, Reference reference, int version) async {
+    Uint8List? bytes = await remoteFileBytes(reference);
+    saveHiveImage(gcsUrl, bytes!, version);
+    return bytes;
+  }
+
+  // get bytes from firebase storage
+  static Future<Uint8List?> remoteFileBytes(Reference reference) async {
+    return await reference.getData();
+  }
+
+  // get firebase reference
+  static Reference getRefFromGsUrl(String gsUrl) {
+    Uri uri = Uri.parse(gsUrl);
+    String bucketName = '${uri.scheme}://${uri.authority}';
+    FirebaseStorage storage = FirebaseStorage.instanceFor(bucket: bucketName);
+    return storage.ref().child(uri.path);
   }
 
   /// delete all images from storage
-  static Future<void> clearAllImages() async {
+  static Future<dynamic> clearAllImages() async {
     await _cacheBox.close();
     await _cacheBox.deleteFromDisk();
     _cacheBox = await Hive.openBox(Constants.HIVE_CACHE_IMAGE_BOX);
+    return 'success';
   }
 
   /// Gets the number of cached images in the actual session
@@ -134,12 +203,12 @@ class PCacheImageService {
 
   /// Save the image in the hive storage
   @visibleForTesting
-  static HiveCacheImage saveHiveImage(String url, Uint8List image) {
+  static HiveCacheImage saveHiveImage(
+      String url, Uint8List image, int version) {
+    print('saveHiveImage...');
     String id = _stringToBase64.encode(url);
-    HiveCacheImage cacheImage = HiveCacheImage(
-      url: url,
-      binaryImage: image,
-    );
+    HiveCacheImage cacheImage =
+        HiveCacheImage(remotePath: url, binaryImage: image, version: version);
     _cacheBox.put(id, cacheImage);
     return cacheImage;
   }
