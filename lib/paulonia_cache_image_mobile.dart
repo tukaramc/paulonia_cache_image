@@ -6,11 +6,13 @@ import 'dart:ui' as ui;
 
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:hive/hive.dart';
+import 'package:paulonia_cache_image/constants.dart';
+import 'package:paulonia_cache_image/hive_cache_image.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:paulonia_cache_image/cache_refresh_strategy.dart';
 import 'package:paulonia_cache_image/utils.dart';
 import 'package:http/http.dart' as http;
-
-/// TODO change cachedPaths to a Hive box (persistence)
 
 /// Paulonia cache image service for mobile
 ///
@@ -23,16 +25,16 @@ class PCacheImageService {
   /// the storage.
   static final Codec<String, String> _stringToBase64 = utf8.fuse(base64);
 
-  /// Used to save the paths to using it on the deletion
-  static final Set<String> _cachedPaths = Set<String>();
-  static Set<String> get cachedPaths => _cachedPaths;
+  /// Hive box used to store the image as a persistent storage
+  static var _cacheBox = Hive.box(Constants.HIVE_CACHE_IMAGE_BOX);
+  static get cacheBox => _cacheBox;
 
   /// Initialize the service on mobile
   ///
   /// This function initialize the path of the temporal directory
   /// [proxy] is unused in this service.
   static Future<void> init({String? proxy}) async {
-    _tempPath = (await getTemporaryDirectory()).path;
+    _tempPath = (await getApplicationDocumentsDirectory()).path;
   }
 
   /// Get the image codec
@@ -43,46 +45,70 @@ class PCacheImageService {
   /// is true.
   static Future<ui.Codec> getImage(String url, Duration retryDuration,
       Duration maxRetryDuration, bool enableCache,
-      {bool clearCacheImage = false}) async {
+      {bool clearCacheImage = false,
+      required CacheRefreshStrategy cacheRefreshStrategy}) async {
     Uint8List bytes;
     String id = _stringToBase64.encode(url);
 
     String path = _tempPath + '/' + id;
     final File file = File(path);
 
-    if (clearCacheImage  && fileIsCached(file)) {
-      file.deleteSync();
-      _cachedPaths.remove(path);
-    }
-    if (fileIsCached(file)) {
-      bytes = file.readAsBytesSync();
-    } else {
-      bytes = await downloadImage(url, retryDuration, maxRetryDuration);
-      if (bytes.lengthInBytes != 0) {
-        if (enableCache) {
-          saveFile(file, bytes);
-        }
-      } else {
-        /// TODO The image can't be downloaded
-        return ui.instantiateImageCodec(Uint8List(0));
+    if (cacheRefreshStrategy == CacheRefreshStrategy.NONE) {
+      print('NONE...');
+      if (clearCacheImage && fileIsCached(file)) {
+        file.deleteSync();
+        await deleteHiveImage(url);
       }
+      if (fileIsCached(file)) {
+        bytes = file.readAsBytesSync();
+      } else {
+        bytes = await downloadImage(url, retryDuration, maxRetryDuration);
+        if (bytes.lengthInBytes != 0) {
+          if (enableCache) {
+            saveFile(file, url, bytes, 0);
+          }
+        } else {
+          /// TODO The image can't be downloaded
+          return ui.instantiateImageCodec(Uint8List(0));
+        }
+      }
+      return ui.instantiateImageCodec(bytes);
+    } else {
+      HiveCacheImage? cacheImage = getHiveImage(url);
+      print('cacheImage...${cacheImage!.version}');
+      print('remotePath...${cacheImage.localPath}');
+
+      /// means gcsAdvanceCache is true
+      if (cacheImage != null &&
+          cacheRefreshStrategy == CacheRefreshStrategy.NATIVE) {
+        checkForUpdate(
+            hiveCacheImage: cacheImage,
+            file: file,
+            cacheRefreshStrategy: cacheRefreshStrategy);
+      } else {
+        await checkForUpdate(
+            hiveCacheImage: cacheImage,
+            gcsUrl: url,
+            file: file,
+            cacheRefreshStrategy: cacheRefreshStrategy);
+      }
+
+      bytes = file.readAsBytesSync();
+      print('donneee...');
+      return ui.instantiateImageCodec(bytes);
     }
-    return ui.instantiateImageCodec(bytes);
   }
 
   /// Clears all the images from the local storage
-  static Future<void> clearAllImages() async {
-    for (String path in _cachedPaths) {
-      var file = File(path);
-      if (file.existsSync()) {
-        file.deleteSync();
-      }
-    }
-    _cachedPaths.clear();
+  static Future<dynamic> clearAllImages() async {
+    await _cacheBox.close();
+    await _cacheBox.deleteFromDisk();
+    _cacheBox = await Hive.openBox(Constants.HIVE_CACHE_IMAGE_BOX);
+    Directory directory = await getApplicationDocumentsDirectory();
+    directory.deleteSync(recursive: true);
+    _tempPath = (await getApplicationDocumentsDirectory()).path;
+    return 'success';
   }
-
-  /// Gets the number of cached images in the actual session
-  static int get length => _cachedPaths.length;
 
   /// Downloads the image
   ///
@@ -121,6 +147,67 @@ class PCacheImageService {
     return bytes;
   }
 
+  static Future<void> checkForUpdate(
+      {HiveCacheImage? hiveCacheImage,
+      String? gcsUrl,
+      required File file,
+      required CacheRefreshStrategy cacheRefreshStrategy}) async {
+    Reference reference = getRefFromGsUrl(
+        hiveCacheImage == null ? gcsUrl! : hiveCacheImage.remotePath);
+    print('reference...${reference.fullPath}');
+
+    int remoteVersion =
+        (await reference.getMetadata()).updated?.millisecondsSinceEpoch ?? -1;
+
+    // means image exits in cache
+    if (hiveCacheImage != null) {
+      if (remoteVersion != hiveCacheImage.version) {
+        print('means version not same......');
+        // If true, download new image for next load
+        await upsertRemoteFileToCache(
+            hiveCacheImage.remotePath, reference, remoteVersion,
+            file: file);
+      } else {
+        print('means version same......');
+      }
+    } else {
+      print('hiveCacheImage null......');
+      // means image not exits in cache
+      await upsertRemoteFileToCache(gcsUrl!, reference, remoteVersion,
+          file: file);
+    }
+  }
+
+  // get bytes from firebase storage and save to hive
+  static Future<Uint8List?> upsertRemoteFileToCache(
+    String gcsUrl,
+    Reference reference,
+    int version, {
+    required File file,
+  }) async {
+    Uint8List? bytes = await remoteFileBytes(reference);
+    saveFile(
+      file,
+      gcsUrl,
+      bytes!,
+      version,
+    );
+    return bytes;
+  }
+
+  // get bytes from firebase storage
+  static Future<Uint8List?> remoteFileBytes(Reference reference) async {
+    return await reference.getData();
+  }
+
+  // get firebase reference
+  static Reference getRefFromGsUrl(String gsUrl) {
+    Uri uri = Uri.parse(gsUrl);
+    String bucketName = '${uri.scheme}://${uri.authority}';
+    FirebaseStorage storage = FirebaseStorage.instanceFor(bucket: bucketName);
+    return storage.ref().child(uri.path);
+  }
+
   /// Verifies if [file] is stored on cache
   @visibleForTesting
   static bool fileIsCached(File file) {
@@ -130,12 +217,33 @@ class PCacheImageService {
     return false;
   }
 
-  /// Saves the file in the local storage
+  /// Delete the image form the hive storage
   @visibleForTesting
-  static void saveFile(File file, Uint8List bytes) {
+  static Future<void> deleteHiveImage(String url) {
+    String id = _stringToBase64.encode(url);
+    return _cacheBox.delete(id);
+  }
+
+  /// Get the image form the hive storage
+  @visibleForTesting
+  static HiveCacheImage? getHiveImage(String url) {
+    String id = _stringToBase64.encode(url);
+    if (!_cacheBox.containsKey(id)) return null;
+    return _cacheBox.get(id);
+  }
+
+  /// Saves the file in the local storage // version means timestamp
+  @visibleForTesting
+  static void saveFile(
+      File file, String remotePath, Uint8List bytes, int version) {
+    print('saveFile......${file.path}');
     file.create(recursive: true);
-    file.writeAsBytes(bytes);
-    _cachedPaths.add(file.path);
+    file.writeAsBytesSync(bytes);
+
+    String id = _stringToBase64.encode(remotePath);
+    HiveCacheImage cacheImage = HiveCacheImage(
+        remotePath: remotePath, version: version, localPath: file.path);
+    _cacheBox.put(id, cacheImage);
   }
 
   /// Get the network from a [gsUrl]
