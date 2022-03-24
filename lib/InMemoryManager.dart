@@ -4,7 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:paulonia_cache_image/cache_refresh_strategy.dart';
 import 'package:paulonia_cache_image/paulonia_cache_image.dart';
 import 'package:paulonia_cache_image/paulonia_cache_image_mobile.dart'
-    if (dart.library.html) 'package:nftmonk/paulonia_cache_image_web.dart';
+    if (dart.library.html) 'package:paulonia_cache_image/paulonia_cache_image_web.dart';
 
 import 'constants.dart';
 
