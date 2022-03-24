@@ -1,9 +1,10 @@
 import 'dart:collection';
 
 import 'package:flutter/cupertino.dart';
+import 'package:paulonia_cache_image/cache_refresh_strategy.dart';
 import 'package:paulonia_cache_image/paulonia_cache_image.dart';
 import 'package:paulonia_cache_image/paulonia_cache_image_mobile.dart'
-    if (dart.library.html) 'package:paulonia_cache_image/paulonia_cache_image_web.dart';
+    if (dart.library.html) 'package:nftmonk/paulonia_cache_image_web.dart';
 
 import 'constants.dart';
 
@@ -29,7 +30,8 @@ class InMemoryManager {
   /// Verifies if the image is in memory cache and returns it. Otherwise it calls
   /// [getImage()] from the service of the platform.
   static ImageStreamCompleter getImage(PCacheImage key,
-      {bool clearMemoryImg = false}) {
+      {bool clearMemoryImg = false,
+      required CacheRefreshStrategy cacheRefreshStrategy}) {
     if (clearMemoryImg) {
       _manager.remove(key.url);
       _managerHandles[key.url]?.dispose();
@@ -43,6 +45,7 @@ class InMemoryManager {
         key.retryDuration!,
         key.maxRetryDuration!,
         key.enableCache!,
+        cacheRefreshStrategy: cacheRefreshStrategy,
       ),
       scale: key.imageScale!,
     );
