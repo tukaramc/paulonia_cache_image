@@ -54,7 +54,6 @@ class PCacheImageService {
     final File file = File(path);
 
     if (cacheRefreshStrategy == CacheRefreshStrategy.NONE) {
-      print('NONE...');
       if (clearCacheImage && fileIsCached(file)) {
         file.deleteSync();
         await deleteHiveImage(url);
@@ -65,7 +64,7 @@ class PCacheImageService {
         bytes = await downloadImage(url, retryDuration, maxRetryDuration);
         if (bytes.lengthInBytes != 0) {
           if (enableCache) {
-            saveFile(file, url, bytes, 0);
+            saveFile(url, bytes, 0);
           }
         } else {
           /// TODO The image can't be downloaded
@@ -75,8 +74,6 @@ class PCacheImageService {
       return ui.instantiateImageCodec(bytes);
     } else {
       HiveCacheImage? cacheImage = getHiveImage(url);
-      print('cacheImage...${cacheImage!.version}');
-      print('remotePath...${cacheImage.localPath}');
 
       /// means gcsAdvanceCache is true
       if (cacheImage != null &&
@@ -94,7 +91,6 @@ class PCacheImageService {
       }
 
       bytes = file.readAsBytesSync();
-      print('donneee...');
       return ui.instantiateImageCodec(bytes);
     }
   }
@@ -154,7 +150,6 @@ class PCacheImageService {
       required CacheRefreshStrategy cacheRefreshStrategy}) async {
     Reference reference = getRefFromGsUrl(
         hiveCacheImage == null ? gcsUrl! : hiveCacheImage.remotePath);
-    print('reference...${reference.fullPath}');
 
     int remoteVersion =
         (await reference.getMetadata()).updated?.millisecondsSinceEpoch ?? -1;
@@ -162,32 +157,21 @@ class PCacheImageService {
     // means image exits in cache
     if (hiveCacheImage != null) {
       if (remoteVersion != hiveCacheImage.version) {
-        print('means version not same......');
         // If true, download new image for next load
         await upsertRemoteFileToCache(
-            hiveCacheImage.remotePath, reference, remoteVersion,
-            file: file);
-      } else {
-        print('means version same......');
+            hiveCacheImage.remotePath, reference, remoteVersion);
       }
     } else {
-      print('hiveCacheImage null......');
       // means image not exits in cache
-      await upsertRemoteFileToCache(gcsUrl!, reference, remoteVersion,
-          file: file);
+      await upsertRemoteFileToCache(gcsUrl!, reference, remoteVersion);
     }
   }
 
   // get bytes from firebase storage and save to hive
   static Future<Uint8List?> upsertRemoteFileToCache(
-    String gcsUrl,
-    Reference reference,
-    int version, {
-    required File file,
-  }) async {
+      String gcsUrl, Reference reference, int version) async {
     Uint8List? bytes = await remoteFileBytes(reference);
     saveFile(
-      file,
       gcsUrl,
       bytes!,
       version,
@@ -201,8 +185,8 @@ class PCacheImageService {
   }
 
   // get firebase reference
-  static Reference getRefFromGsUrl(String gsUrl) {
-    Uri uri = Uri.parse(gsUrl);
+  static Reference getRefFromGsUrl(String remotePath) {
+    Uri uri = Uri.parse(remotePath);
     String bucketName = '${uri.scheme}://${uri.authority}';
     FirebaseStorage storage = FirebaseStorage.instanceFor(bucket: bucketName);
     return storage.ref().child(uri.path);
@@ -234,13 +218,13 @@ class PCacheImageService {
 
   /// Saves the file in the local storage // version means timestamp
   @visibleForTesting
-  static void saveFile(
-      File file, String remotePath, Uint8List bytes, int version) {
-    print('saveFile......${file.path}');
+  static void saveFile(String remotePath, Uint8List bytes, int version) {
+    String id = _stringToBase64.encode(remotePath);
+    String path = _tempPath + '/' + id;
+    final File file = File(path);
     file.create(recursive: true);
     file.writeAsBytesSync(bytes);
 
-    String id = _stringToBase64.encode(remotePath);
     HiveCacheImage cacheImage = HiveCacheImage(
         remotePath: remotePath, version: version, localPath: file.path);
     _cacheBox.put(id, cacheImage);
