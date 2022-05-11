@@ -108,6 +108,7 @@ maxRetryDuration | Max accumulated time of retries | 10s
 imageScale | The image scale | 1.0
 maxInMemoryImages | Global variable, sets a max number of images in memory | 7
 clearCacheImage | Deletes the image from cache | false
+cacheRefreshStrategy | Refreshes image only if timestamp of image changes in GCS, native - check for updates in the background, progressive - check for updates first before rendering image from cache | none
 
 ## Author
 
