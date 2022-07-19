@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
-import 'package:firebase/firebase.dart' as fb;
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hive/hive.dart';
@@ -211,6 +210,9 @@ class PCacheImageService {
   ///
   /// This function get the download url from a Google Cloud Storage url
   static Future<String> _getStandardUrlFromGsUrl(String gsUrl) async {
-    return (await fb.storage().refFromURL(gsUrl).getDownloadURL()).toString();
+    Uri uri = Uri.parse(gsUrl);
+    String bucketName = '${uri.scheme}://${uri.authority}';
+    FirebaseStorage storage = FirebaseStorage.instanceFor(bucket: bucketName);
+    return await storage.ref().child(uri.path).getDownloadURL();
   }
 }
