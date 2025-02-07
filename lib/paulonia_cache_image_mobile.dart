@@ -6,7 +6,7 @@ import 'dart:ui' as ui;
 
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:hive/hive.dart';
+import 'package:hive_ce/hive.dart';
 import 'package:paulonia_cache_image/constants.dart';
 import 'package:paulonia_cache_image/hive_cache_image.dart';
 import 'package:path_provider/path_provider.dart';

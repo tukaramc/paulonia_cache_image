@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:ui' as ui;
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
-import 'package:hive/hive.dart';
+import 'package:hive_ce/hive.dart';
 import 'package:paulonia_cache_image/cache_refresh_strategy.dart';
 import 'package:paulonia_cache_image/constants.dart';
 import 'package:http/http.dart' as http;
