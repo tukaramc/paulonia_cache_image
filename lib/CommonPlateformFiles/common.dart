@@ -1,12 +1,10 @@
-import 'dart:io';
-
 class CommonPlatformService {
   CommonPlatformService() {
     rConstructor();
   }
   Future<void> rConstructor() async {}
 
-  static Future<Directory> getDirectoryPath() {
-    return Future.value(Directory.current);
+  static Future<dynamic> getDirectoryPath() {
+    return Future.value();
   }
 }
