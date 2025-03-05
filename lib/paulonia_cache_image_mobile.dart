@@ -7,9 +7,9 @@ import 'dart:ui' as ui;
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:paulonia_cache_image/CommonPlateformFiles/junction.dart';
 import 'package:paulonia_cache_image/constants.dart';
 import 'package:paulonia_cache_image/hive_cache_image.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:paulonia_cache_image/cache_refresh_strategy.dart';
 import 'package:paulonia_cache_image/utils.dart';
 import 'package:http/http.dart' as http;
@@ -34,7 +34,7 @@ class PCacheImageService {
   /// This function initialize the path of the temporal directory
   /// [proxy] is unused in this service.
   static Future<void> init({String? proxy}) async {
-    _tempPath = (await getApplicationDocumentsDirectory()).path;
+    _tempPath = (await CommonPlatformService.getDirectoryPath()).path;
   }
 
   /// Get the image codec
@@ -100,9 +100,9 @@ class PCacheImageService {
     await _cacheBox.close();
     await _cacheBox.deleteFromDisk();
     _cacheBox = await Hive.openBox(Constants.HIVE_CACHE_IMAGE_BOX);
-    Directory directory = await getApplicationDocumentsDirectory();
+    Directory directory = await CommonPlatformService.getDirectoryPath();
     directory.deleteSync(recursive: true);
-    _tempPath = (await getApplicationDocumentsDirectory()).path;
+    _tempPath = (await CommonPlatformService.getDirectoryPath()).path;
     return 'success';
   }
 
