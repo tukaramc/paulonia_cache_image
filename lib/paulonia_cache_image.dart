@@ -8,8 +8,9 @@ import 'package:paulonia_cache_image/cache_refresh_strategy.dart';
 import 'package:paulonia_cache_image/constants.dart';
 import 'package:paulonia_cache_image/global_values.dart';
 import 'package:paulonia_cache_image/hive_cache_image.dart';
-import 'package:paulonia_cache_image/paulonia_cache_image_mobile.dart'
-    if (dart.library.html) 'package:paulonia_cache_image/paulonia_cache_image_web.dart';
+import 'package:paulonia_cache_image/paulonia_cache_image_junction.dart';
+// import 'package:paulonia_cache_image/paulonia_cache_image_mobile.dart'
+//     if (dart.library.html) 'package:paulonia_cache_image/paulonia_cache_image_web.dart';
 
 class PCacheImage extends ImageProvider<PCacheImage> {
   PCacheImage(this.url,

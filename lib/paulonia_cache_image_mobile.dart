@@ -34,6 +34,7 @@ class PCacheImageService {
   /// This function initialize the path of the temporal directory
   /// [proxy] is unused in this service.
   static Future<void> init({String? proxy}) async {
+    print('mobile init **********');
     _tempPath = (await CommonPlatformService.getDirectoryPath()).path;
   }
 
