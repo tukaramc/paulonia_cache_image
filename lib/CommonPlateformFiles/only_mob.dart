@@ -11,7 +11,6 @@ class CommonPlatformService {
 
   // get directory path
   static Future<Directory> getDirectoryPath() async {
-    print('calling only mob class ****');
     return await path_provider.getApplicationDocumentsDirectory();
   }
 }

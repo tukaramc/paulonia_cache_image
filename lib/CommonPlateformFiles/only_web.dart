@@ -9,7 +9,6 @@ class CommonPlatformService {
   Future<void> rConstructor() async {}
 
   static Future<dynamic> getDirectoryPath() {
-    print('calling only web class ****');
     return Future.value();
   }
 }

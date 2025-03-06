@@ -9,7 +9,6 @@ class CommonPlatformService {
   }
 
   static Future getDirectoryPath() {
-    print('calling only common class ****');
     return Future.value();
   }
 }
