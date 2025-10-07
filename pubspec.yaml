@@ -11,7 +11,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  firebase_storage: ^12.3.7
+  firebase_storage: ^13.0.2
   path_provider: ^2.1.5
   hive_ce: ^2.10.1
   http: ^1.1.0
