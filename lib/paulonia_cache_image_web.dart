@@ -65,7 +65,9 @@ class PCacheImageService {
       } else {
         bytes = cacheImage.binaryImage!;
       }
-      return ui.instantiateImageCodec(bytes);
+      final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
+      final descriptor = await ui.ImageDescriptor.encoded(buffer);
+      return descriptor.instantiateCodec();
     } else {
       /// means gcsAdvanceCache is true
       if (cacheImage != null &&
@@ -79,7 +81,10 @@ class PCacheImageService {
             cacheRefreshStrategy: cacheRefreshStrategy);
       }
       HiveCacheImage? cacheImage1 = getHiveImage(url);
-      return ui.instantiateImageCodec(cacheImage1!.binaryImage!);
+      final buffer =
+          await ui.ImmutableBuffer.fromUint8List(cacheImage1!.binaryImage!);
+      final descriptor = await ui.ImageDescriptor.encoded(buffer);
+      return descriptor.instantiateCodec();
     }
   }
 

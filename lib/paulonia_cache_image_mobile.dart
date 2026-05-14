@@ -69,10 +69,14 @@ class PCacheImageService {
           }
         } else {
           /// TODO The image can't be downloaded
-          return ui.instantiateImageCodec(Uint8List(0));
+          final buffer = await ui.ImmutableBuffer.fromUint8List(Uint8List(0));
+          final descriptor = await ui.ImageDescriptor.encoded(buffer);
+          return descriptor.instantiateCodec();
         }
       }
-      return ui.instantiateImageCodec(bytes);
+      final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
+      final descriptor = await ui.ImageDescriptor.encoded(buffer);
+      return descriptor.instantiateCodec();
     } else {
       HiveCacheImage? cacheImage = getHiveImage(url);
 
@@ -92,7 +96,9 @@ class PCacheImageService {
       }
 
       bytes = file.readAsBytesSync();
-      return ui.instantiateImageCodec(bytes);
+      final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
+      final descriptor = await ui.ImageDescriptor.encoded(buffer);
+      return descriptor.instantiateCodec();
     }
   }
 

@@ -22,12 +22,131 @@
        application. For more information, see:
        https://developers.google.com/web/fundamentals/primers/service-workers -->
   <script>
+    async function checkAndUpdateVersion() {
+      const seconds = new Date().getTime();
+
+      try {
+        // 1. Fetch the latest version.json (keeping your original approach)
+        const response = await fetch('/version.json?v=' + seconds, {
+          cache: 'no-cache',
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch version info');
+        }
+
+        // Parse the JSON to get both version and build_number
+        const versionData = await response.json();
+        const remoteBuildNumber = versionData.build_number;
+        const remoteVersion = versionData.version;
+        
+        // Create a combined version string for comparison
+        const remoteVersionString = `${remoteVersion}_${remoteBuildNumber}`;
+        console.log('Remote version:', remoteVersion, 'Build number:', remoteBuildNumber);
+        console.log('Combined remote version string:', remoteVersionString);
+
+        // 2. Compare with locally stored version in localStorage
+        const localVersionString = localStorage.getItem('appVersionString') || null;
+        console.log('Local version string:', localVersionString);
+
+        // 3. Check if version has changed
+        if (localVersionString !== remoteVersionString) {
+          console.log('Version/Build mismatch detected. Clearing caches and updating...');
+          console.log('Old:', localVersionString, 'New:', remoteVersionString);
+
+          // Clear ALL caches, not just the three Flutter ones
+          const cacheNames = await caches.keys();
+          console.log('Found caches:', cacheNames);
+          
+          // Delete each cache
+          for (const cacheName of cacheNames) {
+            console.log('Deleting cache:', cacheName);
+            await caches.delete(cacheName);
+          }
+
+          // Also unregister any existing service workers to force a fresh one
+          if ('serviceWorker' in navigator) {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            for (const registration of registrations) {
+              console.log('Unregistering service worker:', registration.scope);
+              await registration.unregister();
+            }
+          }
+
+          // Clear sessionStorage as well (sometimes Flutter stores things here)
+          sessionStorage.clear();
+
+          // If this is an update (not first visit), commit version + force reload
+          if (localVersionString !== null) {
+            localStorage.setItem('appVersionString', remoteVersionString);
+            console.log('Forcing page reload for fresh assets...');
+            // Small delay to ensure cleanup completes
+            setTimeout(() => {
+              window.location.reload(true);
+            }, 100);
+            return; // Stop here since page will reload
+          }
+
+          // First visit: defer storing the version until Flutter actually
+          // boots (removeSplashFromWeb commits it). If Flutter hangs on
+          // first load, a refresh re-runs the version check instead of
+          // falsely treating this version as loaded.
+          window.__pendingVersionString = remoteVersionString;
+        }
+      } catch (e) {
+        console.log('Version check failed', e);
+        // Fallback: continue loading even if version check fails
+      }
+
+      // 4. Finally, load the Flutter app by attaching the bootstrap script
+      loadFlutterApp();
+    }
+
+    function loadFlutterApp() {
+      const script = document.createElement('script');
+      // Add cache busting to flutter_bootstrap.js as well
+      const timestamp = new Date().getTime();
+      script.src = 'flutter_bootstrap.js?v=' + timestamp;
+      script.async = true;
+      document.body.appendChild(script);
+    }
+
+    // Handle service worker updates (this helps catch updates while app is running)
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function () {
-        navigator.serviceWorker.register('flutter_service_worker.js');
+      navigator.serviceWorker.ready.then(registration => {
+        // Check for updates every 60 seconds while app is running
+        setInterval(() => {
+          registration.update();
+        }, 60000);
+        
+        // Listen for new service worker
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'activated') {
+              console.log('New service worker activated');
+              // Optional: Show a toast/notification to user about update
+              // You could trigger a reload here or show an "Update available" message
+            }
+          });
+        });
       });
     }
+
+    // 5. Trigger version check once the DOM is ready
+    document.addEventListener('DOMContentLoaded', () => {
+      if ('serviceWorker' in navigator) {
+        checkAndUpdateVersion();
+      } else {
+        console.log('Service worker not available, loading app directly...');
+        loadFlutterApp();
+      }
+    });
   </script>
-  <script src="main.dart.js" type="application/javascript"></script>
 </body>
 </html>
