@@ -9,14 +9,14 @@ import PackageDescription
 let package = Package(
     name: "FlutterGeneratedPluginSwiftPackage",
     platforms: [
-        .iOS("13.0")
+        .iOS("15.0")
     ],
     products: [
         .library(name: "FlutterGeneratedPluginSwiftPackage", type: .static, targets: ["FlutterGeneratedPluginSwiftPackage"])
     ],
     dependencies: [
-        .package(name: "firebase_core", path: "../.packages/firebase_core-4.11.0"),
-        .package(name: "firebase_storage", path: "../.packages/firebase_storage-13.4.3"),
+        .package(name: "firebase_core", path: "../.packages/firebase_core-4.13.0"),
+        .package(name: "firebase_storage", path: "../.packages/firebase_storage-13.4.6"),
         .package(name: "FlutterFramework", path: "../.packages/FlutterFramework")
     ],
     targets: [
