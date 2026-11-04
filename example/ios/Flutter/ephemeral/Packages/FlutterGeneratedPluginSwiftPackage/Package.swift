@@ -15,8 +15,8 @@ let package = Package(
         .library(name: "FlutterGeneratedPluginSwiftPackage", type: .static, targets: ["FlutterGeneratedPluginSwiftPackage"])
     ],
     dependencies: [
-        .package(name: "firebase_core", path: "../.packages/firebase_core-5.0.0"),
-        .package(name: "firebase_storage", path: "../.packages/firebase_storage-14.0.0"),
+        .package(name: "firebase_core", path: "../.packages/firebase_core-5.1.0"),
+        .package(name: "firebase_storage", path: "../.packages/firebase_storage-14.0.1"),
         .package(name: "FlutterFramework", path: "../.packages/FlutterFramework")
     ],
     targets: [
