@@ -1,6 +1,6 @@
 import 'dart:collection';
 
-import 'package:flutter/cupertino.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:paulonia_cache_image/cache_refresh_strategy.dart';
 import 'package:paulonia_cache_image/paulonia_cache_image.dart';
 import 'package:paulonia_cache_image/paulonia_cache_image_mobile.dart'

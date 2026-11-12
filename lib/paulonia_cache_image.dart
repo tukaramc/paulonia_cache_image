@@ -1,6 +1,6 @@
 library paulonia_cache_image;
 
-import 'package:flutter/cupertino.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:paulonia_cache_image/InMemoryManager.dart';

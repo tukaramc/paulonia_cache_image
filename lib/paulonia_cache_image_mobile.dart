@@ -5,7 +5,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:flutter/cupertino.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:paulonia_cache_image/CommonPlateformFiles/junction.dart';
 import 'package:paulonia_cache_image/constants.dart';
